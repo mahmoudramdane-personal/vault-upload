@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Vault — Upload</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f2f2f7;
+      color: #1c1c1e;
+      min-height: 100dvh;
+      padding: 24px 16px 48px;
+    }
+
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+    .subtitle { color: #6c6c70; font-size: 14px; margin-bottom: 32px; }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: #6c6c70;
+      margin-bottom: 8px;
+    }
+
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 12px;
+      border: 1.5px solid #e5e5ea;
+      border-radius: 10px;
+      font-size: 16px;
+      outline: none;
+      transition: border-color .15s;
+      background: #fafafa;
+    }
+    input:focus { border-color: #007aff; background: #fff; }
+
+    .field + .field { margin-top: 16px; }
+
+    /* drop zone */
+    #dropzone {
+      border: 2px dashed #c7c7cc;
+      border-radius: 14px;
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      position: relative;
+    }
+    #dropzone.over { border-color: #007aff; background: #e8f0fe; }
+    #dropzone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    #dropzone .icon { font-size: 40px; margin-bottom: 8px; }
+    #dropzone .hint { color: #6c6c70; font-size: 14px; }
+    #dropzone .hint strong { color: #007aff; }
+
+    /* file list */
+    #file-list { list-style: none; margin-top: 12px; }
+    #file-list li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid #f2f2f7;
+      font-size: 14px;
+    }
+    #file-list li:last-child { border-bottom: none; }
+    #file-list .fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #file-list .fsize { color: #8e8e93; font-size: 12px; white-space: nowrap; }
+    #file-list .remove { color: #ff3b30; cursor: pointer; font-size: 18px; line-height: 1; flex-shrink: 0; }
+
+    /* folder */
+    #dest-folder {
+      width: 100%;
+      padding: 12px;
+      border: 1.5px solid #e5e5ea;
+      border-radius: 10px;
+      font-size: 16px;
+      outline: none;
+      background: #fafafa;
+      transition: border-color .15s;
+    }
+    #dest-folder:focus { border-color: #007aff; background: #fff; }
+
+    /* button */
+    button#upload-btn {
+      width: 100%;
+      padding: 16px;
+      background: #007aff;
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+      margin-top: 8px;
+    }
+    button#upload-btn:disabled { opacity: .45; cursor: default; }
+
+    /* settings toggle */
+    #settings-toggle {
+      background: none;
+      border: none;
+      color: #007aff;
+      font-size: 15px;
+      cursor: pointer;
+      padding: 0;
+      margin-bottom: 12px;
+    }
+
+    /* status */
+    #status { margin-top: 16px; }
+    .msg {
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .msg.success { background: #d4edda; color: #155724; }
+    .msg.error   { background: #f8d7da; color: #721c24; }
+    .msg.info    { background: #d1ecf1; color: #0c5460; }
+
+    /* progress */
+    .progress-bar-wrap {
+      background: #e5e5ea;
+      border-radius: 4px;
+      height: 6px;
+      margin: 4px 0 8px;
+      overflow: hidden;
+    }
+    .progress-bar { height: 100%; background: #007aff; transition: width .3s; }
+
+    a.link { color: #007aff; text-decoration: none; }
+    small { font-size: 12px; color: #8e8e93; display: block; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+<h1>Vault</h1>
+<p class="subtitle">Upload files from your iPhone directly to GitHub</p>
+
+<!-- Settings -->
+<div class="card" id="settings-card">
+  <button id="settings-toggle">⚙️ Settings</button>
+  <div id="settings-body" style="display:none">
+    <div class="field">
+      <label>GitHub Repository (owner/repo)</label>
+      <input type="text" id="repo" placeholder="e.g. mahmoudramdane-personal/Vault" autocorrect="off" autocapitalize="off" spellcheck="false" />
+    </div>
+    <div class="field">
+      <label>GitHub Personal Access Token</label>
+      <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxx" autocorrect="off" autocapitalize="off" spellcheck="false" />
+      <small>Needs <strong>repo</strong> scope. <a class="link" href="https://github.com/settings/tokens/new?scopes=repo&description=Vault+Upload" target="_blank">Create one on GitHub →</a></small>
+    </div>
+    <div class="field">
+      <label>Branch</label>
+      <input type="text" id="branch" placeholder="main" autocorrect="off" autocapitalize="off" spellcheck="false" />
+    </div>
+    <div class="field" style="margin-top:16px">
+      <button id="save-btn" style="background:#34c759;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;width:100%">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<!-- Upload -->
+<div class="card">
+  <label>Destination folder in repo (optional)</label>
+  <input type="text" id="dest-folder" placeholder="e.g. documents/photos" autocorrect="off" autocapitalize="off" spellcheck="false" />
+</div>
+
+<div class="card">
+  <div id="dropzone">
+    <div class="icon">📁</div>
+    <div class="hint">Drag &amp; drop here, or use the buttons below</div>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:12px">
+    <label style="flex:1;text-transform:none;font-size:15px;font-weight:600;color:#007aff;background:#e8f0fe;border-radius:10px;padding:12px;text-align:center;cursor:pointer">
+      📄 Files
+      <input type="file" id="file-input" multiple style="display:none" />
+    </label>
+    <label style="flex:1;text-transform:none;font-size:15px;font-weight:600;color:#007aff;background:#e8f0fe;border-radius:10px;padding:12px;text-align:center;cursor:pointer">
+      📂 Folder
+      <input type="file" id="dest-folder-btn" webkitdirectory multiple style="display:none" />
+    </label>
+  </div>
+  <p style="font-size:12px;color:#8e8e93;margin-top:8px;text-align:center">Folder selection works on desktop browsers. On iPhone, pick multiple files.</p>
+  <ul id="file-list"></ul>
+</div>
+
+<button id="upload-btn" disabled>Upload to GitHub</button>
+
+<div id="status"></div>
+
+<script>
+  const $ = id => document.getElementById(id);
+
+  // ── Persist settings ────────────────────────────────────────────────────────
+  const KEYS = ['repo', 'token', 'branch', 'dest-folder'];
+  KEYS.forEach(k => {
+    const el = $(k);
+    const saved = localStorage.getItem('vault_' + k);
+    if (saved) el.value = saved;
+    el.addEventListener('input', () => localStorage.setItem('vault_' + k, el.value.trim()));
+  });
+
+  $('settings-toggle').addEventListener('click', () => {
+    const body = $('settings-body');
+    const hidden = body.style.display === 'none';
+    body.style.display = hidden ? 'block' : 'none';
+    $('settings-toggle').textContent = hidden ? '⚙️ Settings (tap to close)' : '⚙️ Settings';
+  });
+
+  $('save-btn').addEventListener('click', () => {
+    $('settings-body').style.display = 'none';
+    $('settings-toggle').textContent = '⚙️ Settings';
+  });
+
+  // ── File list ───────────────────────────────────────────────────────────────
+  let files = [];
+
+  $('file-input').addEventListener('change', e => {
+    [...e.target.files].forEach(f => addFile(f, ''));
+    e.target.value = '';
+  });
+
+  $('dest-folder-btn').addEventListener('change', e => {
+    [...e.target.files].forEach(f => addFile(f, f.webkitRelativePath || f.name));
+    e.target.value = '';
+  });
+
+  $('dropzone').addEventListener('dragover', e => { e.preventDefault(); $('dropzone').classList.add('over'); });
+  $('dropzone').addEventListener('dragleave', () => $('dropzone').classList.remove('over'));
+  $('dropzone').addEventListener('drop', e => {
+    e.preventDefault();
+    $('dropzone').classList.remove('over');
+    [...e.dataTransfer.files].forEach(f => addFile(f, f.webkitRelativePath || f.name));
+  });
+
+  // files array stores {file, repoPath}
+  function addFile(f, relativePath) {
+    const repoPath = relativePath || f.name;
+    if (files.find(x => x.repoPath === repoPath)) return;
+    files.push({ file: f, repoPath });
+    renderList();
+  }
+
+  function renderList() {
+    const ul = $('file-list');
+    ul.innerHTML = '';
+    files.forEach(({ file, repoPath }, i) => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <span class="fname" title="${repoPath}">${repoPath}</span>
+        <span class="fsize">${fmtSize(file.size)}</span>
+        <span class="remove" data-i="${i}">✕</span>`;
+      ul.appendChild(li);
+    });
+    ul.querySelectorAll('.remove').forEach(btn => {
+      btn.addEventListener('click', () => { files.splice(+btn.dataset.i, 1); renderList(); });
+    });
+    $('upload-btn').disabled = files.length === 0;
+  }
+
+  function fmtSize(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(1) + ' MB';
+  }
+
+  // ── Upload ──────────────────────────────────────────────────────────────────
+  $('upload-btn').addEventListener('click', upload);
+
+  async function upload() {
+    const repo   = $('repo').value.trim();
+    const token  = $('token').value.trim();
+    const branch = $('branch').value.trim() || 'main';
+    const folder = $('dest-folder').value.trim().replace(/^\/|\/$/g, '');
+
+    if (!repo || !token) {
+      showMsg('Please fill in the repository and token in Settings.', 'error');
+      $('settings-body').style.display = 'block';
+      return;
+    }
+
+    $('upload-btn').disabled = true;
+    $('status').innerHTML = '';
+
+    let successCount = 0;
+    for (const { file, repoPath } of files) {
+      addProgress(repoPath);
+      try {
+        const b64 = await toBase64(file);
+        const fullPath = folder ? `${folder}/${repoPath}` : repoPath;
+        await githubPut(token, repo, branch, fullPath, b64, repoPath);
+        updateProgress(repoPath, 'success');
+        successCount++;
+      } catch (err) {
+        updateProgress(repoPath, 'error', err.message);
+      }
+    }
+
+    if (successCount === files.length) {
+      files = [];
+      renderList();
+    }
+    $('upload-btn').disabled = files.length === 0;
+  }
+
+  async function githubPut(token, repo, branch, path, b64, name) {
+    const url = `https://api.github.com/repos/${repo}/contents/${encodeURIComponent(path)}`;
+
+    // Check if file exists (to get sha for updates)
+    let sha;
+    const check = await fetch(url + `?ref=${branch}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }
+    });
+    if (check.ok) {
+      const data = await check.json();
+      sha = data.sha;
+    }
+
+    const body = {
+      message: `upload: ${name}`,
+      content: b64,
+      branch,
+      ...(sha ? { sha } : {})
+    };
+
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+  }
+
+  function toBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ── Status messages ─────────────────────────────────────────────────────────
+  function showMsg(text, type = 'info') {
+    const div = document.createElement('div');
+    div.className = `msg ${type}`;
+    div.textContent = text;
+    $('status').appendChild(div);
+  }
+
+  const progressEls = {};
+  function addProgress(name) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `
+      <div class="msg info"><span>⏳</span><span>${name}</span></div>
+      <div class="progress-bar-wrap"><div class="progress-bar" style="width:30%"></div></div>`;
+    $('status').appendChild(wrap);
+    progressEls[name] = wrap;
+  }
+  function updateProgress(name, type, errMsg) {
+    const wrap = progressEls[name];
+    if (!wrap) return;
+    if (type === 'success') {
+      wrap.innerHTML = `<div class="msg success">✅ ${name} — uploaded</div>`;
+    } else {
+      wrap.innerHTML = `<div class="msg error">❌ ${name} — ${errMsg}</div>`;
+    }
+  }
+
+  // Auto-open settings if not configured
+  if (!$('repo').value || !$('token').value) {
+    $('settings-body').style.display = 'block';
+    $('settings-toggle').textContent = '⚙️ Settings (tap to close)';
+  }
+</script>
+</body>
+</html>
