@@ -200,7 +200,7 @@
       📂 Folder
     </button>
   </div>
-  <p style="font-size:12px;color:#8e8e93;margin-top:8px;text-align:center">Folder selection works on desktop browsers. On iPhone, pick multiple files.</p>
+  <p id="folder-note" style="font-size:12px;color:#8e8e93;margin-top:8px;text-align:center"></p>
   <ul id="file-list"></ul>
 </div>
 
@@ -240,9 +240,18 @@
     e.target.value = '';
   });
 
-  document.getElementById('folder-btn').addEventListener('click', async () => {
+  // Show/hide folder button based on browser support
+  const folderBtn = document.getElementById('folder-btn');
+  const folderNote = document.getElementById('folder-note');
+  if (window.showDirectoryPicker) {
+    folderNote.textContent = 'Folder upload preserves subfolder structure.';
+  } else {
+    folderBtn.style.display = 'none';
+    folderNote.textContent = 'Folder upload is not supported in Safari. Use the Files button to pick multiple files.';
+  }
+
+  folderBtn.addEventListener('click', async () => {
     if (!window.showDirectoryPicker) {
-      alert('Folder picking is not supported in this browser. Use Chrome or Edge on desktop.');
       return;
     }
     let dirHandle;
